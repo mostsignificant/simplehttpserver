@@ -33,16 +33,19 @@ namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 namespace po = boost::program_options;
-using tcp = boost::asio::ip::tcp;  // from <boost/asio/ip/tcp.hpp>
+
+using tcp = boost::asio::ip::tcp;
 
 // Return a reasonable mime type based on the extension of a file.
 beast::string_view mime_type(beast::string_view path) {
     using beast::iequals;
+
     auto const ext = [&path] {
         auto const pos = path.rfind(".");
         if (pos == beast::string_view::npos) return beast::string_view{};
         return path.substr(pos);
     }();
+
     if (iequals(ext, ".htm")) return "text/html";
     if (iequals(ext, ".html")) return "text/html";
     if (iequals(ext, ".php")) return "text/html";
@@ -64,6 +67,7 @@ beast::string_view mime_type(beast::string_view path) {
     if (iequals(ext, ".tif")) return "image/tiff";
     if (iequals(ext, ".svg")) return "image/svg+xml";
     if (iequals(ext, ".svgz")) return "image/svg+xml";
+
     return "application/text";
 }
 
@@ -361,30 +365,29 @@ int main(int argc, char* argv[]) {
         ("threads", po::value<unsigned short>()->default_value(1), "number of threads to use");
     // clang-format on
 
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
+    po::variables_map args;
+    po::store(po::parse_command_line(argc, argv, desc), args);
+    po::notify(args);
 
-    if (vm.count("help")) {
+    if (args.count("help")) {
         std::cout << desc << "\n";
         return EXIT_SUCCESS;
     }
 
-    auto const address = net::ip::make_address(vm["host"].as<std::string>());
-    auto const port = vm["port"].as<unsigned short>();
-    auto const doc_root = std::make_shared<std::string>(vm["doc_root"].as<std::string>());
-    auto const threads = std::max<int>(1, vm["threads"].as<unsigned short>());
+    auto const address = net::ip::make_address(args["host"].as<std::string>());
+    auto const port = args["port"].as<unsigned short>();
+    auto const doc_root = std::make_shared<std::string>(args["doc_root"].as<std::string>());
+    auto const threads = std::max<int>(1, args["threads"].as<unsigned short>());
 
-    // The io_context is required for all I/O
     net::io_context ioc{threads};
-
-    // Create and launch a listening port
     std::make_shared<listener>(ioc, tcp::endpoint{address, port}, doc_root)->run();
 
-    // Run the I/O service on the requested number of threads
     std::vector<std::thread> v;
     v.reserve(threads - 1);
-    for (auto i = threads - 1; i > 0; --i) v.emplace_back([&ioc] { ioc.run(); });
+    for (auto i = 0; i < threads - 1; ++i) {
+        v.emplace_back([&ioc] { ioc.run(); });
+    }
+
     ioc.run();
 
     return EXIT_SUCCESS;
