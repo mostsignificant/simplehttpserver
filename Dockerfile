@@ -2,35 +2,36 @@
 # simplehttpserver build stage
 ########################################################################################################################
 
-FROM debian:bullseye-slim AS build
+FROM alpine:3.17.0 AS build
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential=12.9 \
-    cmake=3.18.4-2+deb11u1 \
-    libboost-all-dev=1.74.0.3
+RUN apk update && \
+    apk add --no-cache \
+    build-base \
+    cmake \
+    boost1.80-dev=1.80.0-r3
 
 WORKDIR /simplehttpserver
 
 COPY src/ ./src/
 COPY CMakeLists.txt .
 
-RUN mkdir build && \
-    cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+WORKDIR /simplehttpserver/build
+
+RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
     cmake --build . --parallel 8
 
 ########################################################################################################################
 # simplehttpserver image
 ########################################################################################################################
 
-FROM debian:bullseye-slim
+FROM alpine:3.17.0
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    libboost-program-options1.74.0
+RUN apk update && \
+    apk add --no-cache \
+    libstdc++ \
+    boost1.80-program_options=1.80.0-r3
 
-RUN useradd -ms /bin/bash shs
+RUN addgroup -S shs && adduser -S shs -G shs
 USER shs
 
 COPY --chown=shs:shs --from=build \
